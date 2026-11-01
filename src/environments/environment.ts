@@ -1,5 +1,7 @@
 export const environment = {
   production: false,
+  // Base do proxy (server/). As chaves ficam em server/.env, nao aqui.
+  apiBase: 'http://127.0.0.1:3333/api',
   // ══════════════════════════════════════════════════
   //  SUAS CHAVES DE API — substitua os valores abaixo
   // ══════════════════════════════════════════════════

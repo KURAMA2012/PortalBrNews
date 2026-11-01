@@ -1,5 +1,6 @@
 ﻿import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
 import { Observable, of, delay, forkJoin, map, catchError } from 'rxjs';
 import {
   NewsArticle, WeatherData, Game, Movie,
@@ -11,6 +12,8 @@ import {
 // ============================================================
 @Injectable({ providedIn: 'root' })
 export class DataService {
+
+  private readonly api = environment.apiBase;
 
   constructor(private http: HttpClient) {}
 
@@ -38,7 +41,12 @@ export class DataService {
       { title: 'Flamengo vence Libertadores com gol nos acrÃ©scimos', description: 'MengÃ£o conquista o bicampeonato em virada Ã©pica no EstÃ¡dio Monumental de Buenos Aires.', url: '#', publishedAt: '2026-04-06T23:00:00Z', source: { name: 'SportsBR' }, category: 'sports', emoji: 'ðŸ†' },
     ];
     const filtered = category && category !== 'all' ? all.filter(n => n.category === category) : all;
-    return of(filtered).pipe(delay(400));
+    // Via proxy (server/). Sem NEWSAPI_KEY o proxy responde 503 e caimos no mock.
+    const params = { category: category || 'all' };
+    return this.http.get<NewsArticle[]>(this.api + '/news', { params }).pipe(
+      map(r => { if (!Array.isArray(r) || !r.length) throw new Error('vazio'); return r; }),
+      catchError(() => of(filtered))
+    );
   }
 
   // â”€â”€ WEATHER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -60,13 +68,16 @@ export class DataService {
         { day: 'Sex', emoji: 'â˜€ï¸', high: 31, low: 23 },
       ]
     };
-    return of(mock).pipe(delay(600));
+    return this.http.get<WeatherData>(this.api + '/weather', { params: { city } }).pipe(
+      map(r => ({ ...r, forecast: r.forecast?.length ? r.forecast : mock.forecast })),
+      catchError(() => of(mock))
+    );
   }
 
   // â”€â”€ GAMES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://api.rawg.io/api/games?key=SUA_KEY&ordering=-rating&page_size=20
   getGames(): Observable<Game[]> {
-    return of([
+    const fallback: Game[] = [
       { id: 1, name: 'Elden Ring: Nightreign', rating: 9.4, genres: ['RPG', 'Souls-like'], released: '2025', emoji: 'âš”ï¸', bgColor: '#26215C' },
       { id: 2, name: 'GTA VI',                rating: 9.8, genres: ['AÃ§Ã£o', 'Mundo Aberto'], released: '2026', emoji: 'ðŸ™ï¸', bgColor: '#1a1a10', isNew: true },
       { id: 3, name: 'Hollow Knight 2',       rating: 9.1, genres: ['Metroidvania', 'Indie'], released: '2025', emoji: 'ðŸ¦‹', bgColor: '#0d1a0d' },
@@ -75,13 +86,17 @@ export class DataService {
       { id: 6, name: 'Zelda: Echoes+',        rating: 9.5, genres: ['Aventura', 'Puzzle'], released: '2025', emoji: 'ðŸ—¡ï¸', bgColor: '#102010' },
       { id: 7, name: 'FIFA 2027',             rating: 8.3, genres: ['Esportes', 'Futebol'], released: '2026', emoji: 'âš½', bgColor: '#080818', isNew: true },
       { id: 8, name: 'Hades III',             rating: 9.6, genres: ['Roguelike', 'AÃ§Ã£o'], released: '2026', emoji: 'ðŸ”¥', bgColor: '#1a0505', isNew: true },
-    ]).pipe(delay(500));
+    ];
+    return this.http.get<Game[]>(this.api + '/games').pipe(
+      map(r => { if (!Array.isArray(r) || !r.length) throw new Error('vazio'); return r; }),
+      catchError(() => of(fallback))
+    );
   }
 
   // â”€â”€ MOVIES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://api.themoviedb.org/3/movie/popular?api_key=SUA_KEY&language=pt-BR
   getMovies(): Observable<Movie[]> {
-    return of([
+    const fallback: Movie[] = [
       { id: 1, title: 'Dune: Parte III',        overview: 'A conclusÃ£o Ã©pica da saga de Paul Atreides em Arrakis.', genre: 'FicÃ§Ã£o CientÃ­fica', year: 2025, rating: 9.1, emoji: 'ðŸœï¸', bgColor: '#2a1a00' },
       { id: 2, title: 'Avengers: Kang Dynasty', overview: 'Os Vingadores enfrentam o mais poderoso vilÃ£o do multiverso.', genre: 'AÃ§Ã£o / Aventura', year: 2026, rating: 8.5, emoji: 'ðŸ¦¸', bgColor: '#00101e', isNew: true } as any,
       { id: 3, title: 'O Senhor dos AnÃ©is',     overview: 'A nova sÃ©rie de filmes da Terra MÃ©dia comeÃ§a aqui.', genre: 'Fantasia', year: 2025, rating: 9.4, emoji: 'ðŸ’', bgColor: '#0d1a00' },
@@ -90,7 +105,11 @@ export class DataService {
       { id: 6, title: 'John Wick 5',            overview: 'A Ãºltima danÃ§a do assassino mais letal do cinema.', genre: 'AÃ§Ã£o / Thriller', year: 2026, rating: 8.2, emoji: 'ðŸ”«', bgColor: '#1a0000', isNew: true } as any,
       { id: 7, title: 'Barbie 2',               overview: 'De volta ao mundo real, Barbie enfrenta novos desafios.', genre: 'ComÃ©dia', year: 2025, rating: 8.0, emoji: 'ðŸ©·', bgColor: '#1a0010' },
       { id: 8, title: 'Oppenheimer 2',          overview: 'O legado atÃ´mico e as consequÃªncias para o mundo moderno.', genre: 'Drama HistÃ³rico', year: 2026, rating: 9.0, emoji: 'ðŸ’¥', bgColor: '#1a1a00', isNew: true } as any,
-    ]).pipe(delay(500));
+    ];
+    return this.http.get<Movie[]>(this.api + '/movies').pipe(
+      map(r => { if (!Array.isArray(r) || !r.length) throw new Error('vazio'); return r; }),
+      catchError(() => of(fallback))
+    );
   }
 
   // â”€â”€ CRYPTO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -129,7 +148,10 @@ export class DataService {
   // â”€â”€ EXCHANGE RATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://v6.exchangerate-api.com/v6/SUA_KEY/latest/USD
   getRates(): Observable<Record<string, number>> {
-    return of({ USD: 1, EUR: 0.92, BRL: 5.55, GBP: 0.79, JPY: 149.5, ARS: 890 }).pipe(delay(200));
+    const fallback: Record<string, number> = { USD: 1, EUR: 0.92, BRL: 5.55, GBP: 0.79, JPY: 149.5, ARS: 890 };
+    return this.http.get<Record<string, number>>(this.api + '/rates').pipe(
+      catchError(() => of(fallback))
+    );
   }
 
   // â”€â”€ MEMES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -183,15 +205,18 @@ export class DataService {
 
   // â”€â”€ QUOTES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://zenquotes.io/api/quotes
-  // MANTIDO COMO MOCK: zenquotes.io nao envia Access-Control-Allow-Origin, entao o browser bloqueia
-  // a chamada por CORS. Para ligar, use um proxy/backend proprio (ou proxy.conf.json do ng serve).
+  // Chamado via proxy (server/) porque zenquotes.io nao envia Access-Control-Allow-Origin (CORS).
   getQuotes(): Observable<Quote[]> {
-    return of([
+    const fallback: Quote[] = [
       { text: 'A Ãºnica maneira de fazer um trabalho brilhante Ã© amar o que vocÃª faz.', author: 'Steve Jobs' },
       { text: 'O segredo para ir em frente Ã© comeÃ§ar.', author: 'Mark Twain' },
       { text: 'NÃ£o Ã© a forÃ§a, mas o conhecimento que nos torna poderosos.', author: 'Samuel Johnson' },
       { text: 'A criatividade Ã© a inteligÃªncia se divertindo.', author: 'Albert Einstein' },
       { text: 'O sucesso Ã© a soma de pequenos esforÃ§os repetidos dia apÃ³s dia.', author: 'Robert Collier' },
-    ]).pipe(delay(400));
+    ];
+    return this.http.get<Quote[]>(this.api + '/quotes').pipe(
+      map(r => { if (!Array.isArray(r) || !r.length) throw new Error('vazio'); return r; }),
+      catchError(() => of(fallback))
+    );
   }
 }

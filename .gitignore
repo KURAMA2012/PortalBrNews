@@ -8,3 +8,10 @@ dist/
 .idea/
 .vscode/
 *.log
+
+# Segredos e deps do proxy
+.env
+.env.*
+!.env.example
+server/.env
+server/node_modules/

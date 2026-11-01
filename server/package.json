@@ -1,0 +1,21 @@
+{
+  "name": "portalbr-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Proxy seguro do PortalBR: guarda as chaves de API no servidor",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.2",
+    "helmet": "^8.3.0"
+  }
+}
