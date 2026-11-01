@@ -1,0 +1,10 @@
+﻿# Angular / Node
+node_modules/
+dist/
+.angular/
+# Env local (nao commitar chaves reais)
+# (mantemos environment.ts com placeholders)
+# IDE
+.idea/
+.vscode/
+*.log
