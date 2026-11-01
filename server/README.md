@@ -24,7 +24,7 @@ Sem uma chave, a rota correspondente responde `503 {"error":"chave X nao configu
 | `GET /api/weather?city=...` | OpenWeather | `OPENWEATHER_KEY` |
 | `GET /api/games` | RAWG | `RAWG_KEY` |
 | `GET /api/movies` | TMDB | `TMDB_KEY` |
-| `GET /api/rates` | ExchangeRate-API | `EXCHANGERATE_KEY` |
+| `GET /api/rates` | ExchangeRate-API (open.er-api.com) | sem chave |
 | `GET /api/quotes` | ZenQuotes | sem chave |
 
 ## Onde pegar as chaves (planos gratuitos)
@@ -33,7 +33,7 @@ Sem uma chave, a rota correspondente responde `503 {"error":"chave X nao configu
 - OpenWeather: https://home.openweathermap.org/users/sign_up
 - RAWG: https://rawg.io/apidocs
 - TMDB: https://www.themoviedb.org/settings/api (use a "API Key (v3)")
-- ExchangeRate-API: https://www.exchangerate-api.com
+- ExchangeRate-API: https://www.exchangerate-api.com (opcional; o câmbio já usa o endpoint aberto sem chave)
 
 ## Segurança
 

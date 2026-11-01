@@ -106,10 +106,10 @@ api.get('/movies', route(async () => {
 }));
 
 api.get('/rates', route(async () => {
-  const k = key('EXCHANGERATE_KEY');
-  const d = await getJson(`https://v6.exchangerate-api.com/v6/${encodeURIComponent(k)}/latest/USD`);
+  // Endpoint aberto (sem chave) da ExchangeRate-API
+  const d = await getJson('https://open.er-api.com/v6/latest/USD');
   if (d.result !== 'success') throw new HttpError(502, 'API de cambio retornou erro');
-  const r = d.conversion_rates || {};
+  const r = d.rates || {};
   const out = {};
   for (const c of ['USD', 'EUR', 'BRL', 'GBP', 'JPY', 'ARS']) if (r[c] != null) out[c] = r[c];
   return out;
