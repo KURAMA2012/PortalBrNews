@@ -1,5 +1,6 @@
 ﻿import { Injectable } from '@angular/core';
-import { Observable, of, delay } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { Observable, of, delay, forkJoin, map, catchError } from 'rxjs';
 import {
   NewsArticle, WeatherData, Game, Movie,
   CryptoAsset, Meme, Fact, Quote
@@ -10,6 +11,17 @@ import {
 // ============================================================
 @Injectable({ providedIn: 'root' })
 export class DataService {
+
+  constructor(private http: HttpClient) {}
+
+  private shortCap(v: number): string {
+    if (!v) return '-';
+    const d = String.fromCharCode(36);
+    if (v >= 1e12) return d + (v / 1e12).toFixed(1) + 'T';
+    if (v >= 1e9) return d + Math.round(v / 1e9) + 'B';
+    if (v >= 1e6) return d + Math.round(v / 1e6) + 'M';
+    return d + Math.round(v);
+  }
 
   // â”€â”€ NEWS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://newsapi.org/v2/top-headlines?country=br&apiKey=SUA_KEY 
@@ -84,14 +96,34 @@ export class DataService {
   // â”€â”€ CRYPTO â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://api.coingecko.com/api/v3/coins/markets?vs_currency=brl&order=market_cap_desc&per_page=10
   getCryptos(): Observable<CryptoAsset[]> {
-    return of([
-      { id: 'bitcoin',   name: 'Bitcoin',   symbol: 'BTC', priceUsd: 97540,  priceBrl: 541320, change24h:  2.4,  marketCap: '$1.9T',  emoji: 'â‚¿' },
-      { id: 'ethereum',  name: 'Ethereum',  symbol: 'ETH', priceUsd: 3320,   priceBrl: 18432,  change24h:  1.8,  marketCap: '$400B',  emoji: 'Îž' },
-      { id: 'solana',    name: 'Solana',    symbol: 'SOL', priceUsd: 186,    priceBrl: 1032,   change24h: -0.9,  marketCap: '$85B',   emoji: 'â—Ž' },
-      { id: 'bnb',       name: 'BNB',       symbol: 'BNB', priceUsd: 584,    priceBrl: 3241,   change24h:  0.5,  marketCap: '$88B',   emoji: 'â¬¡' },
-      { id: 'cardano',   name: 'Cardano',   symbol: 'ADA', priceUsd: 0.56,   priceBrl: 3.12,   change24h: -1.2,  marketCap: '$20B',   emoji: 'â‚³' },
-      { id: 'avalanche', name: 'Avalanche', symbol: 'AVAX',priceUsd: 36.8,   priceBrl: 204,    change24h:  3.1,  marketCap: '$15B',   emoji: 'ðŸ”º' },
-    ]).pipe(delay(300));
+    const fallback: CryptoAsset[] = [
+      { id: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', priceUsd: 97540, priceBrl: 541320, change24h: 2.4, marketCap: '$1.9T', emoji: '₿' },
+      { id: 'ethereum', name: 'Ethereum', symbol: 'ETH', priceUsd: 3320, priceBrl: 18432, change24h: 1.8, marketCap: '$400B', emoji: 'Ξ' },
+      { id: 'solana', name: 'Solana', symbol: 'SOL', priceUsd: 186, priceBrl: 1032, change24h: -0.9, marketCap: '$85B', emoji: '◎' },
+      { id: 'bnb', name: 'BNB', symbol: 'BNB', priceUsd: 584, priceBrl: 3241, change24h: 0.5, marketCap: '$88B', emoji: '🟡' },
+      { id: 'cardano', name: 'Cardano', symbol: 'ADA', priceUsd: 0.56, priceBrl: 3.12, change24h: -1.2, marketCap: '$20B', emoji: '🔵' },
+      { id: 'avalanche', name: 'Avalanche', symbol: 'AVAX', priceUsd: 36.8, priceBrl: 204, change24h: 3.1, marketCap: '$15B', emoji: '🔺' },
+    ];
+    const emojis: Record<string, string> = { BTC: '₿', ETH: 'Ξ', SOL: '◎' };
+    const base = 'https://api.coingecko.com/api/v3/coins/markets?order=market_cap_desc&per_page=10&page=1&vs_currency=';
+    return forkJoin({
+      brl: this.http.get<any[]>(base + 'brl'),
+      usd: this.http.get<any[]>(base + 'usd').pipe(catchError(() => of([] as any[]))),
+    }).pipe(
+      map(({ brl, usd }) => brl.map((c: any): CryptoAsset => {
+        const u = usd.find((x: any) => x.id === c.id);
+        const sym = String(c.symbol || '').toUpperCase();
+        return {
+          id: c.id, name: c.name, symbol: sym,
+          priceBrl: c.current_price ?? 0,
+          priceUsd: u?.current_price ?? 0,
+          change24h: Number((c.price_change_percentage_24h ?? 0).toFixed(2)),
+          marketCap: this.shortCap(u?.market_cap ?? 0),
+          emoji: emojis[sym] ?? '🪙',
+        };
+      })),
+      catchError(() => of(fallback))
+    );
   }
 
   // â”€â”€ EXCHANGE RATES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -114,26 +146,45 @@ export class DataService {
       { id: '8', name: 'git commit -m "fix" (pela 14Âª vez)', url: '#', emoji: 'ðŸ”¨' },
       { id: '9', name: 'Quando o cliente diz "Ã© sÃ³ uma coisinha rÃ¡pida"', url: '#', emoji: 'ðŸ˜°' },
     ];
-    // Shuffle
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    return of(shuffled).pipe(delay(300));
+    const shuffle = <T>(a: T[]) => [...a].sort(() => Math.random() - 0.5);
+    return this.http.get<any>('https://api.imgflip.com/get_memes').pipe(
+      map(r => {
+        const memes: Meme[] = (r?.data?.memes ?? []).map((m: any) => ({ id: String(m.id), name: m.name, url: m.url, emoji: '😂' }));
+        if (!r?.success || !memes.length) throw new Error('imgflip vazio');
+        return shuffle(memes).slice(0, 9);
+      }),
+      catchError(() => of(shuffle(pool)))
+    );
   }
 
   // â”€â”€ FACTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://uselessfacts.jsph.pl/api/v2/facts/random
   getFacts(): Observable<Fact[]> {
-    return of([
+    const fallback: Fact[] = [
       { number: '8B',   text: 'bilhÃµes de pessoas vivem na Terra â€” nÃºmero sem precedente na histÃ³ria humana' },
       { number: '71%',  text: 'da superfÃ­cie terrestre Ã© coberta por Ã¡gua, mas apenas 3% Ã© potÃ¡vel' },
       { number: '2T',   text: 'Ã© o nÃºmero estimado de galÃ¡xias no universo observÃ¡vel' },
       { number: '100B', text: 'neurÃ´nios formam o cÃ©rebro humano â€” mais que estrelas na Via LÃ¡ctea' },
       { number: '1440', text: 'minutos tem cada dia. O tempo Ã© o Ãºnico recurso que nÃ£o se recupera.' },
       { number: '432Hz', text: 'Ã© a frequÃªncia musical que mÃºsicos debatem hÃ¡ dÃ©cadas se Ã© mais harmÃ´nica' },
-    ]).pipe(delay(400));
+    ];
+    // A API retorna 1 fato por chamada: fazemos 6 em paralelo. Como so traz texto, "number" vira um rotulo #1..#6.
+    const url = 'https://uselessfacts.jsph.pl/api/v2/facts/random?language=en';
+    const calls = Array.from({ length: 6 }, () => this.http.get<any>(url).pipe(catchError(() => of(null))));
+    return forkJoin(calls).pipe(
+      map(rs => {
+        const facts: Fact[] = rs.filter(r => r?.text).map((r, i) => ({ number: '#' + (i + 1), text: String(r.text) }));
+        if (!facts.length) throw new Error('sem fatos');
+        return facts;
+      }),
+      catchError(() => of(fallback))
+    );
   }
 
   // â”€â”€ QUOTES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // PROD: GET https://zenquotes.io/api/quotes
+  // MANTIDO COMO MOCK: zenquotes.io nao envia Access-Control-Allow-Origin, entao o browser bloqueia
+  // a chamada por CORS. Para ligar, use um proxy/backend proprio (ou proxy.conf.json do ng serve).
   getQuotes(): Observable<Quote[]> {
     return of([
       { text: 'A Ãºnica maneira de fazer um trabalho brilhante Ã© amar o que vocÃª faz.', author: 'Steve Jobs' },
@@ -144,4 +195,3 @@ export class DataService {
     ]).pipe(delay(400));
   }
 }
-
